@@ -1,18 +1,7 @@
-import tkinter
-from tkinter import messagebox
-
 import pygame
 pygame.init()
 pygame.mixer.init()
-
-
-class Button:
-    def __init__(self, pos: tuple, size: tuple, sound_drum: list, sound_vocal: list, fx: str) -> None:
-        self.pos_x, self.pos_y = pos
-        self.size_x, self.size_y = size
-        self.sound_drum = sound_drum
-        self.sound_vocal = sound_vocal
-        self.fx = fx
+pygame.font.init()
 
 
 def main_loop():
@@ -24,15 +13,29 @@ def main_loop():
             for _ in range(4)
     ]
 
-    win = pygame.display.set_mode((216, 400)) #1080, 2000
+    win = pygame.display.set_mode((216, 400))
     pygame.display.set_caption("Synth")
     w, h = win.get_size()
     bt_size_x, bt_size_y = w / 4, h * 27 / 200
     bt_start_y = h * 13 / 40
 
+    font = pygame.font.SysFont("Consolas", int(bt_size_y // 2.5))
+    hotbar_inf = [
+        font.render("D", True, (0, 0, 0)),
+        font.render("V", True, (0, 0, 0)),
+        font.render("L", True, (0, 0, 0)),
+        font.render("S", True, (0, 0, 0))
+    ]
+    topbar_inf = [
+        font.render("<Bpm", True, (0, 0, 0)),
+        font.render("Bpm>", True, (0, 0, 0)),
+        font.render("<Vol", True, (0, 0, 0)),
+        font.render("Vol>", True, (0, 0, 0))
+    ]
+
     sound = [[pygame.mixer.Sound(f"./drum/{i}{j}.wav") for j in range(4)] for i in range(4)]
     
-    mode_list = ["Drum", "Vocal", "FX"]
+    mode_list = ["Drum", "Vocal", "Load", "Save"]
     mode = "Drum"
 
     drum_select = True
@@ -62,8 +65,8 @@ def main_loop():
                 x = int(mouse_pos[0] // bt_size_x)
                 y = int((mouse_pos[1] - bt_start_y) // bt_size_y)
 
-                if (y == 4) and (x < 4):
-                    if mode == "Drum":
+                if y == 4:
+                    if (mode == "Drum") and (mode_list[x] == "Drum"):
                         if not drum_select:
                             for ds in drum_sequence:
                                 pth, r, c = ds
@@ -73,27 +76,55 @@ def main_loop():
                                     rythm[c][r][0].append(pth)
                             drum_sequence = []
                         drum_select = not drum_select
-                    elif mode == "Vocal":
+                    elif (mode == "Vocal") and (mode_list[x] == "Vocal"):
                         vocal_rec_started = not vocal_rec_started
+                    elif x == 2:
+                        pass # Load
+                    elif x == 3:
+                        with open("./log.txt", "a", encoding="UTF-8") as f:
+                            f.write(f"{rythm}\n")
+                            f.close()
                     else:
                         mode = mode_list[x]
-                elif mode == "Drum":
+                elif y == -1:
+                    if x == 0:
+                        fps -= 1 / 15
+                    elif x == 1:
+                        fps += 1 / 15
+                    elif x == 2:
+                        if mode == "Drum":
+                            v = sound[drum_pth[0]][drum_pth[1]].get_volume()
+                            if v > 0:
+                                sound[drum_pth[0]][drum_pth[1]].set_volume(v - 0.1)
+                        else:
+                            pass # For vocal
+                        
+                    else:
+                        if mode == "Drum":
+                            v = sound[drum_pth[0]][drum_pth[1]].get_volume()
+                            if v < 1:
+                                sound[drum_pth[0]][drum_pth[1]].set_volume(v + 0.1)
+                        else:
+                            pass # For vocal
+                elif (mode == "Drum") and (y >= 0):
                     if not drum_select:
                         drum_sequence.append((drum_pth, x, y))
                     else:
                         drum_pth = y, x
                         sound[y][x].play()
-                elif mode == "Vocal":
-                    pass
-                elif mode == "FX":
+                elif y >= 0:
                     pass
         
-        for row in range(5):
+        for row in range(6):
             for col in range(4):
                 if row < 4:
                     pygame.draw.rect(win, (100, 100, 100), (bt_size_x * col + 1, bt_start_y + bt_size_y * row, bt_size_x - 2, bt_size_y - 2))
-                else:
+                elif row == 4:
                     pygame.draw.rect(win, (200, 200, 200), (bt_size_x * col + 1, bt_start_y + bt_size_y * row, bt_size_x - 2, bt_size_y - 2))
+                    win.blit(hotbar_inf[col], (bt_size_x * col + 1, bt_start_y + bt_size_y * row))
+                else:
+                    pygame.draw.rect(win, (200, 200, 200), (bt_size_x * col + 1, bt_start_y - bt_size_y, bt_size_x - 2, bt_size_y - 2))
+                    win.blit(topbar_inf[col], (bt_size_x * col + 3, bt_start_y - bt_size_y))
         
         if (mode == "Drum") and not drum_select:
             for r in range(4):
@@ -102,16 +133,15 @@ def main_loop():
                         pygame.draw.rect(win, (90, 220, 90), (bt_size_x * c + 1, bt_start_y + bt_size_y * r, bt_size_x - 2, bt_size_y - 2))
         pygame.draw.rect(win, (0, 190, 190), (bt_size_x * global_row + 1, bt_start_y + bt_size_y * global_col, bt_size_x - 2, bt_size_y - 2))
         
+        bpm = font.render(f"BPM: {round(fps * 15)}", True, (255, 255, 255))
+        md = font.render(f"Mode: {mode}", True, (255, 255, 255))
+
+        win.blit(bpm, (5, 5))
+        win.blit(md, (5, bt_size_y // 2 + 7))
+
         pygame.display.update()
 
         cnt += 1
-    
-    tkinter.Tk().wm_withdraw()
-    w = messagebox.askquestion("Save?", "Save rythm?")
-    if w == "yes":
-        with open("./log.txt", "a", encoding="UTF-8") as f:
-            f.write(f"{rythm}\n")
-            f.close()
 
 
 if __name__ == "__main__":
