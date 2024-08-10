@@ -1,7 +1,9 @@
 import pygame
+import pygame.midi
 pygame.init()
 pygame.mixer.init()
 pygame.font.init()
+pygame.midi.init()
 
 
 def main_loop():
@@ -19,7 +21,7 @@ def main_loop():
     bt_size_x, bt_size_y = w / 4, h * 27 / 200
     bt_start_y = h * 13 / 40
 
-    font = pygame.font.SysFont("Consolas", int(bt_size_y // 2.5))
+    font = pygame.font.SysFont("Consolas", int(bt_size_y // 4))
     hotbar_inf = [
         font.render("D", True, (0, 0, 0)),
         font.render("V", True, (0, 0, 0)),
@@ -34,7 +36,8 @@ def main_loop():
     ]
 
     sound = [[pygame.mixer.Sound(f"./drum/{i}{j}.wav") for j in range(4)] for i in range(4)]
-    
+    vo_sound = [[pygame.mixer.Sound(f"./vocal/{i}{j}.wav") for j in range(4)] for i in range(4)]
+
     mode_list = ["Drum", "Vocal", "Load", "Save"]
     mode = "Drum"
 
@@ -55,7 +58,10 @@ def main_loop():
         s_source = rythm[global_col][global_row][global_beat]
         if len(s_source) > 0:
             for i in s_source:
-                sound[i[0]][i[1]].play(0)
+                if i[0] == "v":
+                    vo_sound[i[1]][i[2]].play()
+                else:
+                    sound[i[0]][i[1]].play()
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 run = False
@@ -96,24 +102,35 @@ def main_loop():
                             v = sound[drum_pth[0]][drum_pth[1]].get_volume()
                             if v > 0:
                                 sound[drum_pth[0]][drum_pth[1]].set_volume(v - 0.1)
-                        else:
-                            pass # For vocal
+                        elif mode == "Vocal":
+                            for vocals_row in vo_sound:
+                                for vocal_item in vocals_row:
+                                    v = vocal_item.get_volume()
+                                    if v > 0:
+                                        vocal_item.set_volume(v - 0.1)
                         
                     else:
                         if mode == "Drum":
                             v = sound[drum_pth[0]][drum_pth[1]].get_volume()
                             if v < 1:
                                 sound[drum_pth[0]][drum_pth[1]].set_volume(v + 0.1)
-                        else:
-                            pass # For vocal
-                elif (mode == "Drum") and (y >= 0):
-                    if not drum_select:
-                        drum_sequence.append((drum_pth, x, y))
-                    else:
-                        drum_pth = y, x
-                        sound[y][x].play()
+                        elif mode == "Vocal":
+                            for vocals_row in vo_sound:
+                                for vocal_item in vocals_row:
+                                    v = vocal_item.get_volume()
+                                    if v < 1:
+                                        vocal_item.set_volume(v - 0.1)
                 elif y >= 0:
-                    pass
+                    if mode == "Drum":
+                        if not drum_select:
+                            drum_sequence.append((drum_pth, x, y))
+                        else:
+                            drum_pth = y, x
+                            sound[y][x].play()
+                    elif mode == "Vocal":
+                        vo_sound[y][x].play()
+                        if vocal_rec_started:
+                            rythm[global_col][global_row][global_beat].append(("v", y, x))
         
         for row in range(6):
             for col in range(4):
@@ -135,13 +152,16 @@ def main_loop():
         
         bpm = font.render(f"BPM: {round(fps * 15)}", True, (255, 255, 255))
         md = font.render(f"Mode: {mode}", True, (255, 255, 255))
+        md_2 = font.render(f"Rec: {vocal_rec_started or (not drum_select)}", True, (255, 255, 255))
 
-        win.blit(bpm, (5, 5))
-        win.blit(md, (5, bt_size_y // 2 + 7))
+        win.blit(bpm, (5, bt_size_y // 4 * 0.2))
+        win.blit(md, (5, bt_size_y // 4 * 1.2))
+        win.blit(md_2, (5, bt_size_y // 2 * 1.1))
 
         pygame.display.update()
 
         cnt += 1
+    pygame.midi.quit()
 
 
 if __name__ == "__main__":
